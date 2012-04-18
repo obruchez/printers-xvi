@@ -263,13 +263,15 @@ object Printers {
     // Fix typos, remove places, remove brackets/question marks, etc.
     val cleanedPrinters =
       printers.
+      replaceAll("\\u00a0", " "). // Replace no-break space with regular space
       trim.
       replaceAll("[\\[\\]]", ""). // Remove square brackets around names
-      replaceAll("^\\[?(?:Ge|Ly)(?:Ê\\?)?\\]?(?: \\?)?, ", ""). // Remove mentions of "Genve" and "Lyon"
+      replaceAll("^\\[?(?:Ge|Ly)(?:.\\?)?\\]?(?:.\\?)?, ", ""). // Remove mentions of "Genve" and "Lyon"
       replace("A. & J. Rivery & Jean Rivery", "A. Rivery & Jean Rivery").
       replace("A. & J. s.n.", "A. Rivery & Jean Rivery").
       replace("Jean Rivery.", "Jean Rivery").
       replace("s.n..", "s.n.").
+      replace("« Va »", "s.n.").
       replace(".II", ". II").
       replaceAll(" +", " ").
       replaceAll("\\u00a0", " ").
@@ -277,6 +279,7 @@ object Printers {
       replace(", imprimeur parisien", "").
       replace(", l’an", "").
       replace(", d’ Arras", "").
+      replace(", dit Vigean", "").
       replace(" pour ", ", ")
 
     cleanedPrinters.split(",|&").toList.map(_.trim).filter(_.size > 0) map { printer =>
