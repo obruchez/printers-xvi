@@ -32,28 +32,29 @@ object Printers {
 
     for { printer <- printers } {
       val booksPrinter = books.map(_._2).filter(_.printers.contains(printer))
-      if (printersBooks.contains(printer)) println("Error: printersBooks("+printer+") already set!")
+      if (printersBooks.contains(printer))
+        println("Error: printersBooks(" + printer + ") already set!")
       printersBooks(printer) = booksPrinter.size
       printersPages(printer) = booksPrinter.flatMap(_.pageCount).sum
     }
 
-    println("Livres : "+books.size)
-    println("Imprimeurs : "+printers.size)
+    println("Livres : " + books.size)
+    println("Imprimeurs : " + printers.size)
     println()
 
     println("Imprimeurs par nombre de livres:")
     println()
-    for { printerBooks <- printersBooks.toList.sort((i1, i2) => i1._2 < i2._2).reverse } {
+    for { printerBooks <- printersBooks.toList.sortWith((i1, i2) => i1._2 < i2._2).reverse } {
       val pageCount = printersPages.get(printerBooks._1).map(_.toString).getOrElse("")
-      println(printerBooks._1+", "+printerBooks._2+", "+pageCount)
+      println(printerBooks._1 + ", " + printerBooks._2 + ", " + pageCount)
     }
     println()
 
     println("Imprimeurs par nombre de pages:")
     println()
-    for { printerPages <- printersPages.toList.sort((i1, i2) => i1._2 < i2._2).reverse } {
+    for { printerPages <- printersPages.toList.sortWith((i1, i2) => i1._2 < i2._2).reverse } {
       val bookCount = printersBooks.get(printerPages._1).map(_.toString).getOrElse("")
-      println(printerPages._1+", "+printerPages._2+", "+bookCount)
+      println(printerPages._1 + ", " + printerPages._2 + ", " + bookCount)
     }
     println()
 
@@ -71,7 +72,7 @@ object Printers {
     println("Nombre de livres par format:")
     println()
     for { (format, bookCount) <- formatsBooks } {
-      println(format+", "+bookCount)
+      println(format + ", " + bookCount)
     }
     println()
 
@@ -81,21 +82,25 @@ object Printers {
       if (group.printers.size >= 2) groups += group
     }
 
-    println("Groupes d'imprimeurs : "+groups.size)
+    println("Groupes d'imprimeurs : " + groups.size)
     println("+ = fait aussi partie d'un autre groupe")
     println("* = imprime aussi seul")
     println()
 
     def printsAlone(printer: String): Boolean =
-      books.values.filter(book => book.printers.size == 1 && book.printers.contains(printer)).size > 0
+      books.values
+        .filter(book => book.printers.size == 1 && book.printers.contains(printer))
+        .size > 0
 
     def isInMultipleGroups(printer: String): Boolean =
       groups.filter(_.printers.contains(printer)).size > 1
 
-    for { group <- groups.toList.sort(_.length<_.length) } {
+    for { group <- groups.toList.sortWith(_.length < _.length) } {
       val printableGroup = group.printers map { printer =>
-          printer+(if (printsAlone(printer)) " (*)" else "")+(if (isInMultipleGroups(printer)) " (+)" else "")
-        } reduceLeft (_+", "+_)
+        printer + (if (printsAlone(printer)) " (*)" else "") + (if (isInMultipleGroups(printer))
+                                                                  " (+)"
+                                                                else "")
+      } reduceLeft (_ + ", " + _)
       println(printableGroup)
     }
   }
@@ -103,11 +108,11 @@ object Printers {
   def computeAliases(names: Set[String]): Map[String, String] = {
     val aliases = HashMap[String, String]()
 
-    names foreach {name =>
+    names foreach { name =>
       val candidateShortName = shortName(name)
       if (name != candidateShortName) {
         aliases.get(candidateShortName) foreach { existingAlias =>
-          if (existingAlias != name) println("Conflict between "+existingAlias+" and "+name)
+          if (existingAlias != name) println("Conflict between " + existingAlias + " and " + name)
         }
         aliases.put(candidateShortName, name)
       }
@@ -123,15 +128,17 @@ object Printers {
     firstWord filterNot { word =>
       word.endsWith(".") || word.size < 1 || isLowerCase(word.substring(0, 1).charAt(0))
     } map { word =>
-      val newFirstWord = word.substring(0, 1)+"."
-      val newName = (newFirstWord :: words.drop(1).toList).reduce(_+" "+_)
+      val newFirstWord = word.substring(0, 1) + "."
+      val newName = (newFirstWord :: words.drop(1).toList).reduce(_ + " " + _)
       newName
     } getOrElse (name)
   }
 
-  def applyAliases(name: String, aliases: Map[String, String]): String = aliases.get(name).getOrElse(name)
+  def applyAliases(name: String, aliases: Map[String, String]): String =
+    aliases.get(name).getOrElse(name)
 
-  def parse(fileString: String, aliases: Map[String, String] = Map[String, String]()): (Set[String], Map[Int, Book]) = {
+  def parse(fileString: String,
+            aliases: Map[String, String] = Map[String, String]()): (Set[String], Map[Int, Book]) = {
     val printers = HashSet[String]()
     val books = HashMap[Int, Book]()
 
@@ -144,11 +151,12 @@ object Printers {
         number = line(1).toInt,
         shortTitle = line(2),
         title = line(3),
-        printers = explodePrinters(urlPrinters.getOrElse(line(4)), aliases).removeDuplicates,
+        printers = explodePrinters(urlPrinters.getOrElse(line(4)), aliases).distinct,
         year = line(5),
         url = url,
         pageCount = htmlToPageCount(html),
-        format = htmlToFormat(html))
+        format = htmlToFormat(html)
+      )
 
       books(book.number) = book
       book.printers.foreach(printers.add(_))
@@ -197,37 +205,42 @@ object Printers {
                s.endsWith("part.") || s.endsWith("ill.") ||
                s.endsWith("planches hors texte") ||
                s.endsWith("planche hors texte")) Some(0) // Ignore vol., grav., part., ill., etc.
-      else None 
+      else None
 
     def unitlessCount(s: String): Option[Int] =
       UnitlessCount.findFirstMatchIn(s.trim).map(_.group(1).trim.toInt)
 
     RawCount.findFirstMatchIn(html).map(_.group(1)) map { rawCount =>
       // Fix typos, fix special characters, and remove comments
-      rawCount.
-        replaceAll(";.*$", "").                // End of string comments (start with colon)
-        replaceAll("\\(.*?\\)", "").           // Inline comments (surrounded by parentheses)
-        replaceAll(" f$", " f.").              // Sheet: missing dot at end of string
-        replaceAll(" p$", " p.").              // Page: missing dot at end of string
-        replaceAll(" f \\.", " f.").           // Sheet: extra space
-        replaceAll(" p \\.", " p.").           // Page: extra space
-        replaceAll("\\., mus\\.$", ".; mus."). // "mus." end of string comment: missing colon
-        replaceAll("\\u00a0", " ").            // Replace no-break space with regular space
-        replace("4 ou 5 vol. [2], XL p. (Superius)", "2, 40").
-        replace("5 vol. LXII, [2] p.", "52, 2").
-        replace("[…] LXI, [3], p.", "61, 3").
-        replace(
-          "[8] 343 [1] : 431, [1] : 348 : 272 : [8], 340, [36] : [56] f.",
-          "8, 343, 1 : 431, 1 : 348 : 272 : 8, 340, 36 : 56 f.").
-        replace(
-          "[8], 362 : 81, [1] : 108, [22] : 32  [18] f.",
-          "8, 362 : 81, 1 : 108, 22 : 32, 18 f.").
-        replace(
-          "[8] 862 [= 855], [1] : 194 [= 201], [1] : [10], 299 [= 270], [52] f.",
-          "8, 862, 1 : 194, 1 : 10, 299, 52 f.").
-        replace("[16] [111] « 11 » : 200 p.", "16, 111 : 200").
-        replace("45 [3] f.", "45, 3 f.").
-        replace("112 [+16] p.", "112, 16")
+      rawCount
+      // End of string comments (start with colon)
+        .replaceAll(";.*$", "")
+        // Inline comments (surrounded by parentheses)
+        .replaceAll("\\(.*?\\)", "")
+        // Sheet: missing dot at end of string
+        .replaceAll(" f$", " f.")
+        // Page: missing dot at end of string
+        .replaceAll(" p$", " p.")
+        // Sheet: extra space
+        .replaceAll(" f \\.", " f.")
+        // Page: extra space
+        .replaceAll(" p \\.", " p.")
+        // "mus." end of string comment: missing colon
+        .replaceAll("\\., mus\\.$", ".; mus.")
+        // Replace no-break space with regular space
+        .replaceAll("\\u00a0", " ")
+        .replace("4 ou 5 vol. [2], XL p. (Superius)", "2, 40")
+        .replace("5 vol. LXII, [2] p.", "52, 2")
+        .replace("[…] LXI, [3], p.", "61, 3")
+        .replace("[8] 343 [1] : 431, [1] : 348 : 272 : [8], 340, [36] : [56] f.",
+                 "8, 343, 1 : 431, 1 : 348 : 272 : 8, 340, 36 : 56 f.")
+        .replace("[8], 362 : 81, [1] : 108, [22] : 32  [18] f.",
+                 "8, 362 : 81, 1 : 108, 22 : 32, 18 f.")
+        .replace("[8] 862 [= 855], [1] : 194 [= 201], [1] : [10], 299 [= 270], [52] f.",
+                 "8, 862, 1 : 194, 1 : 10, 299, 52 f.")
+        .replace("[16] [111] « 11 » : 200 p.", "16, 111 : 200")
+        .replace("45 [3] f.", "45, 3 f.")
+        .replace("112 [+16] p.", "112, 16")
     } map { _.trim } map { cleanCount =>
       val globalMultiplier = multiplier(cleanCount).filter(_ > 0)
 
@@ -248,9 +261,10 @@ object Printers {
 
   def htmlToFormat(html: String): Option[Int] = {
     // Example of formats: "In-8°" (should return 8, i.e. 8 sheets per folio)
-      Formats.findFirstMatchIn(html).map(_.group(1).trim.substring(3).replaceAll("°", "")) map { format =>
-      val spaceIndex = format.indexOf(" ")
-      if (spaceIndex < 0) format else format.substring(0, spaceIndex)
+    Formats.findFirstMatchIn(html).map(_.group(1).trim.substring(3).replaceAll("°", "")) map {
+      format =>
+        val spaceIndex = format.indexOf(" ")
+        if (spaceIndex < 0) format else format.substring(0, spaceIndex)
     } map { _.toInt }
   }
 
@@ -262,48 +276,51 @@ object Printers {
   def explodePrinters(printers: String, aliases: Map[String, String]): List[String] = {
     // Fix typos, remove places, remove brackets/question marks, etc.
     val cleanedPrinters =
-      printers.
-      replaceAll("\\u00a0", " "). // Replace no-break space with regular space
-      trim.
-      replaceAll("[\\[\\]]", ""). // Remove square brackets around names
-      replaceAll("^\\[?(?:Ge|Ly)(?:.\\?)?\\]?(?:.\\?)?, ", ""). // Remove mentions of "Genve" and "Lyon"
-      replace("A. & J. Rivery & Jean Rivery", "A. Rivery & Jean Rivery").
-      replace("A. & J. s.n.", "A. Rivery & Jean Rivery").
-      replace("Jean Rivery.", "Jean Rivery").
-      replace("s.n..", "s.n.").
-      replace("« Va »", "s.n.").
-      replace(".II", ". II").
-      replaceAll(" +", " ").
-      replaceAll("\\u00a0", " ").
-      replace(", typographe d’Ulrich Fugger", "").
-      replace(", imprimeur parisien", "").
-      replace(", l’an", "").
-      replace(", d’ Arras", "").
-      replace(", dit Vigean", "").
-      replace(" pour ", ", ")
+      printers
+      // Replace no-break space with regular space
+        .replaceAll("\\u00a0", " ")
+        .trim
+        // Remove square brackets around names
+        .replaceAll("[\\[\\]]", "")
+        // Remove mentions of "Genve" and "Lyon"
+        .replaceAll("^\\[?(?:Ge|Ly)(?:.\\?)?\\]?(?:.\\?)?, ", "")
+        .replace("A. & J. Rivery & Jean Rivery", "A. Rivery & Jean Rivery")
+        .replace("A. & J. s.n.", "A. Rivery & Jean Rivery")
+        .replace("Jean Rivery.", "Jean Rivery")
+        .replace("s.n..", "s.n.")
+        .replace("« Va »", "s.n.")
+        .replace(".II", ". II")
+        .replaceAll(" +", " ")
+        .replaceAll("\\u00a0", " ")
+        .replace(", typographe d’Ulrich Fugger", "")
+        .replace(", imprimeur parisien", "")
+        .replace(", l’an", "")
+        .replace(", d’ Arras", "")
+        .replace(", dit Vigean", "")
+        .replace(" pour ", ", ")
 
     cleanedPrinters.split(",|&").toList.map(_.trim).filter(_.size > 0) map { printer =>
       val cleanedPrinter =
-        printer.
-        replaceAll("^(.+) \\?$", "$1"). // Remove "?" at end of printer
-        replaceAll("^(.+) I (.+)$", "$1 $2") // Remove "I" in names
-      applyAliases(cleanedPrinter, aliases)}
+        printer
+        // Remove "?" at end of printer
+          .replaceAll("^(.+) \\?$", "$1")
+          // Remove "I" in names
+          .replaceAll("^(.+) I (.+)$", "$1 $2")
+      applyAliases(cleanedPrinter, aliases)
+    }
   }
 }
 
-case class Book(
-  number: Int,
-  shortTitle: String,
-  title: String,
-  printers: List[String],
-  year: String,
-  url: String,
-  pageCount: Option[Int],
-  format: Option[Int])
+case class Book(number: Int,
+                shortTitle: String,
+                title: String,
+                printers: List[String],
+                year: String,
+                url: String,
+                pageCount: Option[Int],
+                format: Option[Int])
 
 case class PrintersGroup(printers: List[String]) {
-  override def hashCode: Int = printers.sort(_ < _).foldLeft("")(_+" "+_).hashCode
+  override def hashCode: Int = printers.sortWith(_ < _).foldLeft("")(_ + " " + _).hashCode
   def length: Int = printers.map(_.size).sum
 }
-
-
