@@ -7,103 +7,106 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 
 object Printers {
-  def main(args: Array[String]) {
+  // scalastyle:off method.length cyclomatic.complexity
+  def main(args: Array[String]): Unit = {
     if (args.size != 1) {
       println("File needed")
       for { a <- args } { println(a) }
-      return
-    }
+    } else {
+      val fileString = scala.io.Source.fromFile(args(0)).mkString
 
-    val fileString = scala.io.Source.fromFile(args(0)).mkString
+      val (printers0, books0) = parse(fileString)
 
-    val (printers0, books0) = parse(fileString)
+      //println("Imprimeurs (first pass): "+printers0.size)
 
-    //println("Imprimeurs (first pass): "+printers0.size)
+      val aliases = computeAliases(printers0)
+      /*for (alias <- aliases) {
+        println(alias._1+" -> "+alias._2)
+      }*/
 
-    val aliases = computeAliases(printers0)
-    /*for (alias <- aliases) {
-      println(alias._1+" -> "+alias._2)
-    }*/
+      val (printers, books) = parse(fileString, aliases)
 
-    val (printers, books) = parse(fileString, aliases)
+      val printersBooks = HashMap[String, Int]()
+      val printersPages = HashMap[String, Int]()
 
-    val printersBooks = HashMap[String, Int]()
-    val printersPages = HashMap[String, Int]()
+      for { printer <- printers } {
+        val booksPrinter = books.map(_._2).filter(_.printers.contains(printer))
+        if (printersBooks.contains(printer)) {
+          println("Error: printersBooks(" + printer + ") already set!")
+        }
+        printersBooks(printer) = booksPrinter.size
+        printersPages(printer) = booksPrinter.flatMap(_.pageCount).sum
+      }
 
-    for { printer <- printers } {
-      val booksPrinter = books.map(_._2).filter(_.printers.contains(printer))
-      if (printersBooks.contains(printer))
-        println("Error: printersBooks(" + printer + ") already set!")
-      printersBooks(printer) = booksPrinter.size
-      printersPages(printer) = booksPrinter.flatMap(_.pageCount).sum
-    }
+      println("Livres : " + books.size)
+      println("Imprimeurs : " + printers.size)
+      println()
 
-    println("Livres : " + books.size)
-    println("Imprimeurs : " + printers.size)
-    println()
+      println("Imprimeurs par nombre de livres:")
+      println()
+      for { printerBooks <- printersBooks.toList.sortWith((i1, i2) => i1._2 < i2._2).reverse } {
+        val pageCount = printersPages.get(printerBooks._1).map(_.toString).getOrElse("")
+        println(printerBooks._1 + ", " + printerBooks._2 + ", " + pageCount)
+      }
+      println()
 
-    println("Imprimeurs par nombre de livres:")
-    println()
-    for { printerBooks <- printersBooks.toList.sortWith((i1, i2) => i1._2 < i2._2).reverse } {
-      val pageCount = printersPages.get(printerBooks._1).map(_.toString).getOrElse("")
-      println(printerBooks._1 + ", " + printerBooks._2 + ", " + pageCount)
-    }
-    println()
+      println("Imprimeurs par nombre de pages:")
+      println()
+      for { printerPages <- printersPages.toList.sortWith((i1, i2) => i1._2 < i2._2).reverse } {
+        val bookCount = printersBooks.get(printerPages._1).map(_.toString).getOrElse("")
+        println(printerPages._1 + ", " + printerPages._2 + ", " + bookCount)
+      }
+      println()
 
-    println("Imprimeurs par nombre de pages:")
-    println()
-    for { printerPages <- printersPages.toList.sortWith((i1, i2) => i1._2 < i2._2).reverse } {
-      val bookCount = printersBooks.get(printerPages._1).map(_.toString).getOrElse("")
-      println(printerPages._1 + ", " + printerPages._2 + ", " + bookCount)
-    }
-    println()
+      val formatsBooks = HashMap[Int, Int]()
 
-    val formatsBooks = HashMap[Int, Int]()
+      for { book <- books.values } {
+        book.format foreach { format =>
+          if (formatsBooks.contains(format)) {
+            formatsBooks(format) += 1
+          } else {
+            formatsBooks(format) = 1
+          }
+        }
+      }
 
-    for { book <- books.values } {
-      book.format foreach { format =>
-        if (formatsBooks.contains(format))
-          formatsBooks(format) += 1
-        else
-          formatsBooks(format) = 1
+      println("Nombre de livres par format:")
+      println()
+      for { (format, bookCount) <- formatsBooks } {
+        println(format + ", " + bookCount)
+      }
+      println()
+
+      val groups = HashSet[PrintersGroup]()
+      for { book <- books } {
+        val group = PrintersGroup(book._2.printers)
+        if (group.printers.size >= 2) groups += group
+      }
+
+      println("Groupes d'imprimeurs : " + groups.size)
+      println("+ = fait aussi partie d'un autre groupe")
+      println("* = imprime aussi seul")
+      println()
+
+      def printsAlone(printer: String): Boolean =
+        books.values
+          .filter(book => book.printers.size == 1 && book.printers.contains(printer))
+          .size > 0
+
+      def isInMultipleGroups(printer: String): Boolean =
+        groups.filter(_.printers.contains(printer)).size > 1
+
+      for { group <- groups.toList.sortWith(_.length < _.length) } {
+        val printableGroup = group.printers map { printer =>
+          printer +
+            (if (printsAlone(printer)) " (*)" else "") +
+            (if (isInMultipleGroups(printer)) " (+)" else "")
+        } reduceLeft (_ + ", " + _)
+        println(printableGroup)
       }
     }
-
-    println("Nombre de livres par format:")
-    println()
-    for { (format, bookCount) <- formatsBooks } {
-      println(format + ", " + bookCount)
-    }
-    println()
-
-    val groups = HashSet[PrintersGroup]()
-    for { book <- books } {
-      val group = PrintersGroup(book._2.printers)
-      if (group.printers.size >= 2) groups += group
-    }
-
-    println("Groupes d'imprimeurs : " + groups.size)
-    println("+ = fait aussi partie d'un autre groupe")
-    println("* = imprime aussi seul")
-    println()
-
-    def printsAlone(printer: String): Boolean =
-      books.values
-        .filter(book => book.printers.size == 1 && book.printers.contains(printer))
-        .size > 0
-
-    def isInMultipleGroups(printer: String): Boolean =
-      groups.filter(_.printers.contains(printer)).size > 1
-
-    for { group <- groups.toList.sortWith(_.length < _.length) } {
-      val printableGroup = group.printers map { printer =>
-        printer + (if (printsAlone(printer)) " (*)" else "") + (if (isInMultipleGroups(printer))
-                                                                  " (+)"
-                                                                else "")
-      } reduceLeft (_ + ", " + _)
-      println(printableGroup)
-    }
   }
+  // scalastyle:on method.length cyclomatic.complexity
 
   def computeAliases(names: Set[String]): Map[String, String] = {
     val aliases = HashMap[String, String]()
@@ -147,6 +150,7 @@ object Printers {
       val html = urlToHtml(url)
       val urlPrinters = htmlToPrinters(html) // Use the printers found in the URL first, instead of line(4)
 
+      // scalastyle:off magic.number
       val book = Book(
         number = line(1).toInt,
         shortTitle = line(2),
@@ -157,6 +161,7 @@ object Printers {
         pageCount = htmlToPageCount(html),
         format = htmlToFormat(html)
       )
+      // scalastyle:on magic.number
 
       books(book.number) = book
       book.printers.foreach(printers.add(_))
@@ -165,6 +170,7 @@ object Printers {
     (printers, books)
   }
 
+  // scalastyle:off null
   def urlToHtml(urlToRead: String): String = {
     // Straight from Java...
     var result = ""
@@ -180,6 +186,7 @@ object Printers {
     rd.close()
     result
   }
+  // scalastyle:on null
 
   // First .* is non-greedy (?), so that we find the first <td>...</td>
   private val RawPrinters = """Lieu/Imprimeur/Date :.*?<td valign="top">([^<]*)<\/td>""".r
@@ -196,16 +203,27 @@ object Printers {
     }
   }
 
+  // scalastyle:off method.length
   def htmlToPageCount(html: String): Option[Int] = {
     def multiplier(s: String): Option[Double] =
-      if (s.endsWith("p.")) Some(1) // 1 page = 1 page
-      else if (s.endsWith("f.")) Some(2) // 1 sheet = 2 pages
-      else if (s.endsWith("col.")) Some(0.5) // 1 column = 0.5 page
-      else if (s.endsWith("vol.") || s.endsWith("grav.") ||
-               s.endsWith("part.") || s.endsWith("ill.") ||
-               s.endsWith("planches hors texte") ||
-               s.endsWith("planche hors texte")) Some(0) // Ignore vol., grav., part., ill., etc.
-      else None
+      if (s.endsWith("p.")) {
+        // 1 page = 1 page
+        Some(1)
+      } else if (s.endsWith("f.")) {
+        // 1 sheet = 2 pages
+        Some(2)
+      } else if (s.endsWith("col.")) {
+        // 1 column = 0.5 page
+        Some(0.5)
+      } else if (s.endsWith("vol.") || s.endsWith("grav.") ||
+                 s.endsWith("part.") || s.endsWith("ill.") ||
+                 s.endsWith("planches hors texte") ||
+                 s.endsWith("planche hors texte")) {
+        // Ignore vol., grav., part., ill., etc.
+        Some(0)
+      } else {
+        None
+      }
 
     def unitlessCount(s: String): Option[Int] =
       UnitlessCount.findFirstMatchIn(s.trim).map(_.group(1).trim.toInt)
@@ -258,6 +276,7 @@ object Printers {
       }
     } map { _.sum }
   }
+  // scalastyle:on method.length
 
   def htmlToFormat(html: String): Option[Int] = {
     // Example of formats: "In-8°" (should return 8, i.e. 8 sheets per folio)
@@ -320,7 +339,9 @@ case class Book(number: Int,
                 pageCount: Option[Int],
                 format: Option[Int])
 
+// scalastyle:off equals.hash.code
 case class PrintersGroup(printers: List[String]) {
   override def hashCode: Int = printers.sortWith(_ < _).foldLeft("")(_ + " " + _).hashCode
   def length: Int = printers.map(_.size).sum
 }
+// scalastyle:on equals.hash.code

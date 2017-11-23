@@ -2,6 +2,7 @@ package org.bruchez.printers
 
 import scala.util.parsing.combinator.RegexParsers
 
+// scalastyle:off method.name public.methods.have.type
 object CSV extends RegexParsers {
   override val skipWhitespace = false
 
@@ -31,3 +32,4 @@ object CSV extends RegexParsers {
     case e               => throw new Exception(e.toString)
   }
 }
+// scalastyle:on method.name public.methods.have.type
