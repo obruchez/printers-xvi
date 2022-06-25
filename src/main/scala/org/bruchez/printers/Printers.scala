@@ -1,10 +1,8 @@
 package org.bruchez.printers
 
+import java.io.{BufferedReader, InputStreamReader}
+import java.net.{HttpURLConnection, URL}
 import scala.collection.mutable._
-import java.net.URL
-import java.net.HttpURLConnection
-import java.io.BufferedReader
-import java.io.InputStreamReader
 
 object Printers {
   // scalastyle:off method.length cyclomatic.complexity
@@ -17,7 +15,7 @@ object Printers {
 
       val (printers0, books0) = parse(fileString)
 
-      //println("Imprimeurs (first pass): "+printers0.size)
+      // println("Imprimeurs (first pass): "+printers0.size)
 
       val aliases = computeAliases(printers0)
       /*for (alias <- aliases) {
@@ -140,15 +138,19 @@ object Printers {
   def applyAliases(name: String, aliases: Map[String, String]): String =
     aliases.get(name).getOrElse(name)
 
-  def parse(fileString: String,
-            aliases: Map[String, String] = Map[String, String]()): (Set[String], Map[Int, Book]) = {
+  def parse(
+      fileString: String,
+      aliases: Map[String, String] = Map[String, String]()
+  ): (Set[String], Map[Int, Book]) = {
     val printers = HashSet[String]()
     val books = HashMap[Int, Book]()
 
     for { line <- CSV.parse(fileString).drop(1) } {
       val url = line(0)
       val html = urlToHtml(url)
-      val urlPrinters = htmlToPrinters(html) // Use the printers found in the URL first, instead of line(4)
+      val urlPrinters = htmlToPrinters(
+        html
+      ) // Use the printers found in the URL first, instead of line(4)
 
       // scalastyle:off magic.number
       val book = Book(
@@ -215,10 +217,12 @@ object Printers {
       } else if (s.endsWith("col.")) {
         // 1 column = 0.5 page
         Some(0.5)
-      } else if (s.endsWith("vol.") || s.endsWith("grav.") ||
-                 s.endsWith("part.") || s.endsWith("ill.") ||
-                 s.endsWith("planches hors texte") ||
-                 s.endsWith("planche hors texte")) {
+      } else if (
+        s.endsWith("vol.") || s.endsWith("grav.") ||
+        s.endsWith("part.") || s.endsWith("ill.") ||
+        s.endsWith("planches hors texte") ||
+        s.endsWith("planche hors texte")
+      ) {
         // Ignore vol., grav., part., ill., etc.
         Some(0)
       } else {
@@ -231,7 +235,7 @@ object Printers {
     RawCount.findFirstMatchIn(html).map(_.group(1)) map { rawCount =>
       // Fix typos, fix special characters, and remove comments
       rawCount
-      // End of string comments (start with colon)
+        // End of string comments (start with colon)
         .replaceAll(";.*$", "")
         // Inline comments (surrounded by parentheses)
         .replaceAll("\\(.*?\\)", "")
@@ -250,12 +254,18 @@ object Printers {
         .replace("4 ou 5 vol. [2], XL p. (Superius)", "2, 40")
         .replace("5 vol. LXII, [2] p.", "52, 2")
         .replace("[…] LXI, [3], p.", "61, 3")
-        .replace("[8] 343 [1] : 431, [1] : 348 : 272 : [8], 340, [36] : [56] f.",
-                 "8, 343, 1 : 431, 1 : 348 : 272 : 8, 340, 36 : 56 f.")
-        .replace("[8], 362 : 81, [1] : 108, [22] : 32  [18] f.",
-                 "8, 362 : 81, 1 : 108, 22 : 32, 18 f.")
-        .replace("[8] 862 [= 855], [1] : 194 [= 201], [1] : [10], 299 [= 270], [52] f.",
-                 "8, 862, 1 : 194, 1 : 10, 299, 52 f.")
+        .replace(
+          "[8] 343 [1] : 431, [1] : 348 : 272 : [8], 340, [36] : [56] f.",
+          "8, 343, 1 : 431, 1 : 348 : 272 : 8, 340, 36 : 56 f."
+        )
+        .replace(
+          "[8], 362 : 81, [1] : 108, [22] : 32  [18] f.",
+          "8, 362 : 81, 1 : 108, 22 : 32, 18 f."
+        )
+        .replace(
+          "[8] 862 [= 855], [1] : 194 [= 201], [1] : [10], 299 [= 270], [52] f.",
+          "8, 862, 1 : 194, 1 : 10, 299, 52 f."
+        )
         .replace("[16] [111] « 11 » : 200 p.", "16, 111 : 200")
         .replace("45 [3] f.", "45, 3 f.")
         .replace("112 [+16] p.", "112, 16")
@@ -267,7 +277,8 @@ object Printers {
 
         splitByColon.split(",").toList.map(_.trim) flatMap { splitByComma =>
           val localMultiplier = multiplier(splitByComma)
-          val finalMultiplier = localMultiplier orElse partMultiplier orElse globalMultiplier getOrElse 1.0
+          val finalMultiplier =
+            localMultiplier orElse partMultiplier orElse globalMultiplier getOrElse 1.0
 
           unitlessCount(splitByComma) map { count =>
             (count.toDouble * finalMultiplier + 0.5).toInt
@@ -296,7 +307,7 @@ object Printers {
     // Fix typos, remove places, remove brackets/question marks, etc.
     val cleanedPrinters =
       printers
-      // Replace no-break space with regular space
+        // Replace no-break space with regular space
         .replaceAll("\\u00a0", " ")
         .trim
         // Remove square brackets around names
@@ -321,7 +332,7 @@ object Printers {
     cleanedPrinters.split(",|&").toList.map(_.trim).filter(_.size > 0) map { printer =>
       val cleanedPrinter =
         printer
-        // Remove "?" at end of printer
+          // Remove "?" at end of printer
           .replaceAll("^(.+) \\?$", "$1")
           // Remove "I" in names
           .replaceAll("^(.+) I (.+)$", "$1 $2")
@@ -330,14 +341,16 @@ object Printers {
   }
 }
 
-case class Book(number: Int,
-                shortTitle: String,
-                title: String,
-                printers: List[String],
-                year: String,
-                url: String,
-                pageCount: Option[Int],
-                format: Option[Int])
+case class Book(
+    number: Int,
+    shortTitle: String,
+    title: String,
+    printers: List[String],
+    year: String,
+    url: String,
+    pageCount: Option[Int],
+    format: Option[Int]
+)
 
 // scalastyle:off equals.hash.code
 case class PrintersGroup(printers: List[String]) {

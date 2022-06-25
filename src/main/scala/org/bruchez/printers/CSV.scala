@@ -1,5 +1,6 @@
 package org.bruchez.printers
 
+import scala.language.postfixOps
 import scala.util.parsing.combinator.RegexParsers
 
 // scalastyle:off method.name public.methods.have.type
